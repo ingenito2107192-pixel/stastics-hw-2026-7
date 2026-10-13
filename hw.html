@@ -1,0 +1,204 @@
+<title>Key-to-Address Lab</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,600;1,6..72,400&family=JetBrains+Mono:wght@400;600&display=swap">
+<link rel="stylesheet" href="hw.css"/>
+
+<div class="wrap">
+<header class="top">
+  <span class="eyebrow">Two homework labs</span>
+  <h1>Key-to-Address Lab</h1>
+  <p>Lab 1 computes a toy public key Q = kG with the double-and-add algorithm, one step at a time. Lab 2 follows a mnemonic phrase to a checksummed Ethereum address.</p>
+</header>
+
+<nav class="tabs" role="tablist" aria-label="Homework">
+  <button role="tab" id="tab-hw1" aria-controls="hw1" aria-selected="true">HMWK 1 · k → kG</button>
+  <button role="tab" id="tab-hw2" aria-controls="hw2" aria-selected="false">HMWK 2 · Mnemonic → address</button>
+</nav>
+
+<!-- ============================== HMWK 1 ============================== -->
+<main id="hw1" role="tabpanel" aria-labelledby="tab-hw1">
+
+<section>
+  <div class="prose">
+    <span class="eyebrow">Setup</span>
+    <h2>Curve y² = x³ + 7 (mod 17), base point G = (1, 5)</h2>
+    <p>G is on the curve because 5² = 25 ≡ 8 and 1³ + 7 = 8. The private key is a number k, and the public key is Q = kG. Double-and-add computes it by reading k in binary from left to right. The leading 1 sets R = G. After that, every bit doubles R, and a 1-bit also adds G.</p>
+  </div>
+  <div class="formula">
+    λ = (3x₁²) · (2y₁)⁻¹ mod 17 &nbsp;&nbsp;(doubling: slope of the tangent)<br>
+    λ = (y₂ − y₁) · (x₂ − x₁)⁻¹ mod 17 &nbsp;&nbsp;(adding: slope of the line)<br>
+    x₃ = λ² − x₁ − x₂ mod 17 &nbsp;&nbsp;(third intersection, from the sum of the cubic's roots)<br>
+    y₃ = λ(x₁ − x₃) − y₁ mod 17 &nbsp;&nbsp;(that point mirrored: y → −y)
+  </div>
+</section>
+
+<section aria-label="Double-and-add">
+  <div class="row panel">
+    <div class="field"><label for="k">Private key k</label><input id="k" type="number" min="1" max="255" value="6"></div>
+    <button class="btn" id="b-step">Next step</button>
+    <button class="btn ghost" id="b-play">Play</button>
+    <button class="btn ghost" id="b-reset">Restart</button>
+  </div>
+
+  <div class="bench">
+    <div class="panel">
+      <svg class="plot" id="plot" viewBox="0 0 372 370" role="img" aria-label="The 18 curve points on a 17 by 17 grid with the current step"></svg>
+      <div class="legend">
+        <span><i style="background:var(--sub)"></i>multiples of G</span>
+        <span><i style="background:var(--muted)"></i>other curve points</span>
+        <span><i style="background:var(--accent)"></i>line mod 17</span>
+        <span><i style="background:var(--hot)"></i>operands → result</span>
+      </div>
+    </div>
+    <div style="display:grid;gap:14px;min-width:0">
+      <div class="panel">
+        <span class="eyebrow">k in binary</span>
+        <div class="bits" id="bits"></div>
+      </div>
+      <div class="panel calc" id="calc" aria-live="polite"></div>
+    </div>
+  </div>
+
+  <div class="result" id="result"></div>
+
+  <div class="panel">
+    <h3>All steps</h3>
+    <div class="scroll"><table>
+      <thead><tr><th>#</th><th>Bit</th><th>Operation</th><th>λ</th><th>R after</th></tr></thead>
+      <tbody id="steps"></tbody>
+    </table></div>
+  </div>
+</section>
+
+<section aria-label="Statistics">
+  <div class="prose">
+    <span class="eyebrow">Statistical exploration</span>
+    <h2>All outputs kG for one base point</h2>
+    <p>The curve has only 18 points, so we can list every output. G = (1, 5) reaches 9 of them (order 9). The point (6, 6) reaches all 18 (order 18), which gives a slightly larger sample.</p>
+  </div>
+  <div class="row"><div class="field"><label for="base">Base point</label>
+    <select id="base"><option value="1,5">G = (1, 5) · order 9 (homework)</option><option value="6,6">(6, 6) · order 18</option></select></div></div>
+  <div class="bench">
+    <div class="panel"><div class="scroll"><table>
+      <thead><tr><th>k</th><th>k (bin)</th><th>kG</th><th>x (bin)</th><th>y (bin)</th></tr></thead>
+      <tbody id="tbl"></tbody></table></div></div>
+    <div class="panel">
+      <h3>What the numbers show</h3>
+      <ul class="obs" id="obs"></ul>
+    </div>
+  </div>
+  <div class="panel">
+    <h3>One-way function or hash function?</h3>
+    <div class="scroll"><table>
+      <thead><tr><th>Property</th><th>Needed for k ↦ kG</th><th>Expected of a hash</th></tr></thead>
+      <tbody>
+        <tr><td>Hard to invert</td><td>Yes. This is the whole point (ECDLP). At p = 17 you can try every k; at 256 bits you cannot.</td><td>Yes (preimage resistance)</td></tr>
+        <tr><td>Deterministic</td><td>Yes</td><td>Yes</td></tr>
+        <tr><td>Uniform values, balanced bits</td><td>Not required; outputs are limited to curve points</td><td>Yes</td></tr>
+        <tr><td>Avalanche</td><td>Not required; happens as a side effect</td><td>Yes, a design goal</td></tr>
+        <tr><td>No algebraic structure</td><td>No. (a+b)G = aG + bG must hold, because signatures depend on it</td><td>Yes. A hash should behave like a random function</td></tr>
+        <tr><td>Fixed-size output from any input</td><td>No (one number in, one point out)</td><td>Yes</td></tr>
+      </tbody>
+    </table></div>
+  </div>
+</section>
+</main>
+
+<!-- ============================== HMWK 2 ============================== -->
+<main id="hw2" role="tabpanel" aria-labelledby="tab-hw2" hidden>
+
+<section>
+  <div class="prose">
+    <span class="eyebrow">The pipeline</span>
+    <h2>Mnemonic → seed → private key → public key → address</h2>
+    <p>Every value is computed in your browser with ethers.js.</p>
+  </div>
+  <div class="notice">The default phrase is the public Hardhat test mnemonic. Never send real funds to it, and never type a real seed phrase into a web page.</div>
+  <div class="panel">
+    <div class="field"><label for="phrase">Mnemonic</label><textarea id="phrase" spellcheck="false">test test test test test test test test test test test junk</textarea></div>
+    <div class="row">
+      <div class="field"><label for="idx">Address index i</label><input id="idx" type="number" min="0" value="0"></div>
+      <button class="btn" id="w-go">Derive</button>
+      <button class="btn ghost" id="w-rand">Random 12 words</button>
+      <button class="btn ghost" id="w-test">Test phrase</button>
+    </div>
+    <div class="status" id="w-status"></div>
+  </div>
+  <div class="pipe" id="pipe"></div>
+</section>
+
+<section>
+  <div class="prose"><span class="eyebrow">Concepts</span><h2>Six words that are easy to mix up</h2></div>
+  <div class="scroll"><table>
+    <thead><tr><th>Concept</th><th>Meaning</th><th>In the pipeline</th></tr></thead>
+    <tbody>
+      <tr><td><span class="chip c-gen">key generation</span></td><td>Creating new secret randomness. It happens once and is the only random step.</td><td>128-bit entropy</td></tr>
+      <tr><td><span class="chip c-der">key derivation</span></td><td>Computing keys deterministically from an existing secret</td><td>BIP-39 seed, BIP-32/44 child keys</td></tr>
+      <tr><td><span class="chip c-pk">public-key crypto</span></td><td>A key pair: the private key signs, the public key verifies</td><td>secp256k1, Q = kG</td></tr>
+      <tr><td><span class="chip c-hash">hashing</span></td><td>Fixed-size, random-looking, one-way digest</td><td>Keccak-256 (also SHA-256 and SHA-512 inside BIP-39/32)</td></tr>
+      <tr><td><span class="chip c-sum">checksum</span></td><td>A few extra bits that catch typos. They provide no security.</td><td>Last bits of the last BIP-39 word, EIP-55 letter case</td></tr>
+      <tr><td><span class="chip c-enc">encoding</span></td><td>The same data in another form, fully reversible</td><td>Bits → words, bytes → hex</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section>
+  <div class="prose">
+    <span class="eyebrow">Statistical properties</span>
+    <h2>What each stage looks like statistically</h2>
+  </div>
+  <ul class="obs" style="max-width:72ch">
+    <li><b>Entropy:</b> 128 uniform bits. The security of everything after this step rests on these bits.</li>
+    <li><b>Words:</b> each word is one of 2048. In a 12-word phrase the last word holds 4 checksum bits, so a random wrong word is caught 15 times in 16.</li>
+    <li><b>Seed and child keys:</b> they look uniformly random, but they are fully determined by the phrase.</li>
+    <li><b>Public key:</b> its coordinates look random, but the point is algebraically tied to k, as Lab 1 shows.</li>
+    <li><b>Keccak-256:</b> about 50% of output bits change when one input bit changes. <span id="aval" class="mono"></span></li>
+    <li><b>EIP-55:</b> each letter a–f carries one check bit, about 15 per address. A mistyped address slips through roughly 0.0247% of the time (figure from the EIP).</li>
+  </ul>
+</section>
+
+<section>
+  <div class="prose">
+    <span class="eyebrow">SHA-2 vs Keccak / SHA-3</span>
+    <h2>Same family, different designs</h2>
+    <p><b>SHA-2</b> (2001) chains a compression function (Merkle–Damgård). <b>Keccak</b> won the SHA-3 competition in 2012 and uses a "sponge" instead. NIST's final SHA-3 standard (2015) changed the padding byte from 0x01 to 0x06. Ethereum had already adopted the original Keccak, so Keccak-256 ≠ SHA3-256:</p>
+  </div>
+  <div class="scroll"><table>
+    <thead><tr><th>Function</th><th>Hash of the empty string</th></tr></thead>
+    <tbody>
+      <tr><td>Keccak-256 (Ethereum)</td><td class="n" id="kk">c5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470</td></tr>
+      <tr><td>SHA3-256 (NIST)</td><td class="n">a7ffc6f8bf1ed76651c14756a061d662f580ff4de43b49fa82d80a4b80f8434a</td></tr>
+      <tr><td>SHA-256</td><td class="n" id="sh">e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section>
+  <div class="prose">
+    <span class="eyebrow">Timeline and purpose</span>
+    <h2>Why several tools instead of one</h2>
+  </div>
+  <div class="scroll"><table>
+    <thead><tr><th>Year</th><th>Technology</th><th>Job in the wallet</th></tr></thead>
+    <tbody>
+      <tr><td class="n">1977</td><td>RSA</td><td>First practical public-key system (not used by Ethereum, but the idea behind it)</td></tr>
+      <tr><td class="n">2001</td><td>SHA-2 / SHA-512</td><td>Hashing inside BIP-39 (checksum, PBKDF2) and BIP-32 (HMAC)</td></tr>
+      <tr><td class="n">2012</td><td>BIP-32</td><td>One seed → a tree of keys</td></tr>
+      <tr><td class="n">2013</td><td>BIP-39</td><td>Human-readable backup words with a checksum</td></tr>
+      <tr><td class="n">2014</td><td>BIP-44</td><td>Standard path m/44'/60'/0'/0/i so wallets agree</td></tr>
+      <tr><td class="n">2015</td><td>SHA-3 (Keccak)</td><td>Ethereum launched with Keccak-256 for addresses</td></tr>
+      <tr><td class="n">2016</td><td>EIP-55</td><td>Typo detection through letter case</td></tr>
+    </tbody>
+  </table></div>
+  <div class="prose">
+    <p>Each step solves a different problem. BIP-39/32/44 handle backup and organisation of keys. secp256k1 proves ownership through signatures without revealing the key. Keccak-256 turns a long, structured public key into a short identifier that looks random. EIP-55 catches typing mistakes. A hash cannot sign, a signature key makes a poor identifier, and neither is meant to be written on paper, so each job gets its own tool.</p>
+    <p><b>Try it:</b> in a separate browser profile, import the test phrase into MetaMask or Rabby. The first account is 0xf39F…2266, the same as index 0 here, and "Add account" gives index 1, 2, ….</p>
+  </div>
+</section>
+</main>
+
+<footer>Teaching code only: the toy curve has 18 points and is not secure. Lab 2 uses ethers.js 6.13.4.</footer>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/ethers@6.13.4/dist/ethers.umd.min.js"></script>
+<script src="hw.js"></script>
